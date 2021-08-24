@@ -18,4 +18,12 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "ssosync_zip",
+    srcs = [":ssosync"],
+    outs = ["ssosync.zip"],
+    tools = ["@bazel_tools//tools/zip:zipper"],
+    cmd = "$(location @bazel_tools//tools/zip:zipper) cC $@ ssosync=$(location :ssosync)",
+)
+
 exports_files(["deps.bzl"])
