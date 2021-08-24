@@ -476,46 +476,73 @@ func (s *syncGSuite) getGoogleGroupsAndUsers(googleGroups []*admin.Group) ([]*ad
 
 	gUniqUsers := make(map[string]*admin.User)
 
-	for _, g := range googleGroups {
+	for _, top := range googleGroups {
+		log := log.WithFields(log.Fields{"group": top.Name})
 
-		log := log.WithFields(log.Fields{"group": g.Name})
-
-		if s.ignoreGroup(g.Email) {
+		if s.ignoreGroup(top.Email) {
 			log.Debug("ignoring group")
 			continue
 		}
 
-		log.Debug("get group members from google")
-		groupMembers, err := s.google.GetGroupMembers(g)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		log.Debug("get users")
+		visited := make(map[string]bool)
+		queue := []*admin.Group{top}
 		membersUsers := make([]*admin.User, 0)
+		groupUniqueUsers := make(map[string]bool)
+		for len(queue) > 0 {
+			g := queue[0]
+			queue = queue[1:]
 
-		for _, m := range groupMembers {
-
-			if s.ignoreUser(m.Email) {
-				log.WithField("id", m.Email).Debug("ignoring user")
-				continue
-			}
-
-			log.WithField("id", m.Email).Debug("get user")
-			q := fmt.Sprintf("email:%s", m.Email)
-			u, err := s.google.GetUsers(q) // TODO: implement GetUser(m.Email)
+			log.Debug("get group members from google")
+			groupMembers, err := s.google.GetGroupMembers(g)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			membersUsers = append(membersUsers, u[0])
+			log.Debug("get users")
 
-			_, ok := gUniqUsers[m.Email]
-			if !ok {
-				gUniqUsers[m.Email] = u[0]
+			for _, m := range groupMembers {
+
+				if s.ignoreUser(m.Email) {
+					log.WithField("id", m.Email).Debug("ignoring user")
+					continue
+				}
+
+				if m.Type == "GROUP" {
+					if _, ok := visited[m.Email]; ok {
+						log.WithField("id", m.Email).Debug("member is a group; already visited")
+					} else {
+						log.WithField("id", m.Email).Debug("member is a group; will recurse")
+						subGroups, err := s.google.GetGroups("email=" + m.Email)
+						if err != nil {
+							return nil, nil, err
+						}
+						if len(subGroups) != 1 {
+							return nil, nil, fmt.Errorf("Expected 1 group for email=%s; got %s", m.Email, len(subGroups))
+						}
+						queue = append(queue, subGroups[0])
+					}
+					continue
+				}
+
+				log.WithField("id", m.Email).Debug("get user")
+				q := fmt.Sprintf("email:%s", m.Email)
+				u, err := s.google.GetUsers(q) // TODO: implement GetUser(m.Email)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				if _, ok := groupUniqueUsers[m.Email]; !ok {
+					membersUsers = append(membersUsers, u[0])
+					groupUniqueUsers[m.Email] = true
+				}
+
+				_, ok := gUniqUsers[m.Email]
+				if !ok {
+					gUniqUsers[m.Email] = u[0]
+				}
 			}
 		}
-		gGroupsUsers[g.Name] = membersUsers
+		gGroupsUsers[top.Name] = membersUsers
 	}
 
 	for _, user := range gUniqUsers {
