@@ -17,3 +17,5 @@ go_binary(
     embed = [":ssosync_lib"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(["deps.bzl"])
