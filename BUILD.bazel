@@ -1,4 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
-# gazelle:prefix github.com/example/project
+# gazelle:prefix github.com/awslabs/ssosync
 gazelle(name = "gazelle")
+
+go_library(
+    name = "ssosync_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/awslabs/ssosync",
+    visibility = ["//visibility:private"],
+    deps = ["//cmd"],
+)
+
+go_binary(
+    name = "ssosync",
+    embed = [":ssosync_lib"],
+    visibility = ["//visibility:public"],
+)

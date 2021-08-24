@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "internal",
+    srcs = ["sync.go"],
+    importpath = "github.com/awslabs/ssosync/internal",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/aws",
+        "//internal/config",
+        "//internal/google",
+        "@com_github_hashicorp_go_retryablehttp//:go-retryablehttp",
+        "@com_github_sirupsen_logrus//:logrus",
+        "@org_golang_google_api//admin/directory/v1:directory",
+    ],
+)
+
+go_test(
+    name = "internal_test",
+    srcs = ["sync_test.go"],
+    embed = [":internal"],
+    deps = [
+        "//internal/aws",
+        "@org_golang_google_api//admin/directory/v1:directory",
+    ],
+)
